@@ -1,0 +1,16 @@
+[Unit]
+Description=AI News — 每日 AI 日报生成
+Documentation=https://github.com/ShawShannon24/aiNews
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/npx tsx /opt/aiNews/src/index.ts --translate --feishu
+WorkingDirectory=/opt/aiNews
+EnvironmentFile=/etc/ai-news.env
+Environment=NODE_ENV=production
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+StandardOutput=journal
+StandardError=journal
+User=root

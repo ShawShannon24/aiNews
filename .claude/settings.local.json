@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test *)",
+      "Bash(npm start *)",
+      "Bash(npx tsx *)",
+      "Read(//Users/xiyin/Documents/claudeCode/**)",
+      "Bash(mkdir -p musicGame)"
+    ]
+  }
+}
