@@ -5,7 +5,7 @@
 从 7 个 RSS 源（4 中文 + 3 英文）抓取 AI 相关文章，生成 Markdown 格式的日报。按语言分组：前 10 篇中文 + 后 10 篇外文，先中后英。支持中英翻译、飞书推送和小红书内容生成。
 
 📋 详细路线图见 [`docs/PRODUCT_PLAN.md`](docs/PRODUCT_PLAN.md)
-🔄 当前阶段：Phase 4 — 轻量云服务器部署（腾讯云轻量服务器）
+✅ Phase 4 — 腾讯云轻量服务器部署已上线
 
 ## 运行命令
 
@@ -38,17 +38,18 @@ npx tsx src/index.ts --help                      # 查看全部选项
 ### 部署相关命令
 
 ```bash
-# 服务器一键初始化
-ssh root@<服务器IP> 'bash -s' < scripts/setup-server.sh
-
-# 手动更新代码（云服务器上）
-ssh root@<服务器IP> 'cd /opt/aiNews && git pull && npm install --production'
+# 服务器信息
+#   腾讯云轻量服务器 | 北京 | 4核4G | Ubuntu 24.04 LTS
+#   IP: 140.143.242.88 | 用户: ubuntu
 
 # 查看运行日志
-ssh root@<服务器IP> 'journalctl -u ai-news.service -n 50 --no-pager'
+ssh ubuntu@140.143.242.88 'journalctl -u ai-news.service -n 50 --no-pager'
 
-# 手动触发一次日报（测试用）
-ssh root@<服务器IP> 'systemctl start ai-news.service'
+# 手动触发一次日报
+ssh ubuntu@140.143.242.88 'sudo systemctl start ai-news.service'
+
+# 更新代码
+ssh ubuntu@140.143.242.88 'cd /opt/aiNews && git pull && npm install --production && sudo systemctl restart ai-news.timer'
 ```
 
 ## 项目结构
@@ -79,9 +80,6 @@ docs/
   PRODUCT_PLAN.md   # 产品计划书（路线图、各 Phase 详细说明）
 output/
   xiaohongshu/      # 小红书内容输出目录
-.github/
-  workflows/
-    daily.yml       # [Phase 4] GitHub Actions 定时任务
 sources.json        # RSS 源配置文件（含 lang 字段: zh/en，可编辑增删）
 run-weekly.sh       # 定时任务脚本（每周六早 8:00）
 ```
@@ -121,7 +119,9 @@ run-weekly.sh       # 定时任务脚本（每周六早 8:00）
 
 ## 配置管理
 
-使用 `~/.ainews/config.json` 存储敏感信息：
+支持两种配置方式，环境变量优先：
+
+### 1. 本地开发（`~/.ainews/config.json`）
 
 ```json
 {
@@ -130,16 +130,23 @@ run-weekly.sh       # 定时任务脚本（每周六早 8:00）
   },
   "xiaohongshu": {
     "enabled": true,
-    "headless": true,
-    "maxArticles": 5,
-    "cookiePath": "~/.ainews/xhs-cookies.json"
+    "maxArticles": 5
   }
 }
 ```
 
-环境变量可覆盖（优先级更高）：
-- `AINEWS_FEISHU_WEBHOOK_URL`
-- `AINEWS_XHS_ENABLED`
+### 2. 云服务器（`/etc/ai-news.env`）
+
+```env
+AINEWS_FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/xxx
+AINEWS_XHS_ENABLED=true
+AINEWS_XHS_MAX_ARTICLES=5
+```
+
+环境变量覆盖规则：
+- `AINEWS_FEISHU_WEBHOOK_URL` → 覆盖 feishu.webhookUrl
+- `AINEWS_XHS_ENABLED` → 启用小红书发布
+- `AINEWS_XHS_MAX_ARTICLES` → 小红书最大文章数（默认 5）
 
 ## 可靠性特性
 
@@ -153,19 +160,28 @@ run-weekly.sh       # 定时任务脚本（每周六早 8:00）
 
 ## 定时任务
 
-当前通过 macOS launchd 调度，每周六早 8:00 运行：
+### 云服务器（当前生产环境）
+
+通过 systemd timer 调度，每天 08:00 自动执行：
 ```
-com.user.ainews → run-weekly.sh → npx tsx src/index.ts --translate
+ai-news.timer → ai-news.service → npx tsx src/index.ts --translate --feishu
 ```
 
 管理命令：
 ```bash
-# 查看状态
-launchctl print gui/$(id -u)/com.user.ainews
+# 查看下次执行时间
+ssh ubuntu@140.143.242.88 'systemctl list-timers ai-news.timer --no-pager'
+
+# 查看上次运行日志
+ssh ubuntu@140.143.242.88 'journalctl -u ai-news.service -n 50 --no-pager'
 
 # 手动触发
-launchctl start com.user.ainews
+ssh ubuntu@140.143.242.88 'sudo systemctl start ai-news.service'
+```
 
-# 查看日志
-cat /tmp/ai-news-cron.log
+### 本地（仅开发测试，云端已上线后停用）
+
+~~通过 macOS launchd 调度，每周六早 8:00 运行~~（云端已上线，本地 launchd 待退役）：
+```
+com.user.ainews → run-weekly.sh → npx tsx src/index.ts --translate
 ```
