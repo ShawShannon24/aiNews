@@ -1,3 +1,6 @@
 .DS_Store
 node_modules/
 output/
+data/*.db
+data/*.db-shm
+data/*.db-wal
