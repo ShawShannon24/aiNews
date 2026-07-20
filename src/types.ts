@@ -18,6 +18,8 @@ export interface FeedSource {
   url: string
   /** 语言: zh = 中文, en = 英文（默认 en） */
   lang?: 'zh' | 'en'
+  /** 分类: 科技 / 财经 / 体育 / 兜底（用于话题追踪信源匹配） */
+  categories?: string[]
 }
 
 /** RSS XML 顶层结构 */

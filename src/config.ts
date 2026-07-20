@@ -12,6 +12,22 @@ export interface Config {
     /** 展示文章数（默认 5） */
     maxArticles?: number
   }
+  // ---- 飞书 Bot 应用（Phases 4.5+） ----
+  bot?: {
+    /** 飞书 Bot App ID */
+    appId: string
+    /** 飞书 Bot App Secret */
+    appSecret: string
+    /** 飞书事件验证令牌 */
+    verifyToken?: string
+  }
+  // ---- DeepSeek API（Phases 4.5+） ----
+  deepseek?: {
+    /** DeepSeek API Key */
+    apiKey: string
+    /** DeepSeek API Base URL（默认 https://api.deepseek.com/v1） */
+    baseUrl?: string
+  }
 }
 
 const CONFIG_PATH = join(homedir(), '.ainews', 'config.json')
@@ -57,6 +73,30 @@ export function loadConfig(): Config | null {
     config ??= { feishu: { webhookUrl: '' }, xiaohongshu: { maxArticles: 5 } }
     config.xiaohongshu ??= {}
     config.xiaohongshu.maxArticles = parseInt(envXhsMax, 10) || 5
+  }
+
+  // ---- 飞书 Bot 应用环境变量 ----
+  const envBotAppId = process.env.AINEWS_FEISHU_BOT_APP_ID
+  const envBotAppSecret = process.env.AINEWS_FEISHU_BOT_APP_SECRET
+  const envBotVerifyToken = process.env.AINEWS_FEISHU_BOT_VERIFY_TOKEN
+  if (envBotAppId && envBotAppSecret) {
+    config ??= { feishu: { webhookUrl: '' } }
+    config.bot = {
+      appId: envBotAppId,
+      appSecret: envBotAppSecret,
+      verifyToken: envBotVerifyToken,
+    }
+  }
+
+  // ---- DeepSeek 环境变量 ----
+  const envDeepSeekKey = process.env.DEEPSEEK_API_KEY
+  const envDeepSeekBaseUrl = process.env.DEEPSEEK_BASE_URL
+  if (envDeepSeekKey) {
+    config ??= { feishu: { webhookUrl: '' } }
+    config.deepseek = {
+      apiKey: envDeepSeekKey,
+      baseUrl: envDeepSeekBaseUrl || 'https://api.deepseek.com/v1',
+    }
   }
 
   return config

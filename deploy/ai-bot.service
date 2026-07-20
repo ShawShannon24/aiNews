@@ -1,0 +1,21 @@
+[Unit]
+Description=AI News — 飞书 Bot 常驻服务
+Documentation=https://github.com/ShawShannon24/aiNews
+After=network-online.target nginx.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/npx tsx /opt/aiNews/src/bot/index.ts
+WorkingDirectory=/opt/aiNews
+EnvironmentFile=/etc/ai-news.env
+Environment=NODE_ENV=production
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+StandardOutput=journal
+StandardError=journal
+User=root
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
