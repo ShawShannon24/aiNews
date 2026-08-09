@@ -4,9 +4,8 @@ Requires=ai-news.service
 
 [Timer]
 Unit=ai-news.service
-OnCalendar=daily
 # 每天 08:00 运行
-# OnCalendar=*-*-* 08:00:00
+OnCalendar=*-*-* 08:00:00
 # 随机延迟避免整点并发
 RandomizedDelaySec=300
 Persistent=true

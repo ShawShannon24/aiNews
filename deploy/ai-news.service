@@ -13,4 +13,7 @@ Environment=NODE_ENV=production
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 StandardOutput=journal
 StandardError=journal
-User=root
+User=ainews
+# 部署前需创建 ainews 用户：
+#   sudo useradd -r -s /usr/sbin/nologin ainews
+#   sudo chown -R ainews:ainews /opt/aiNews /var/log/ai-news

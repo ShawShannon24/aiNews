@@ -4,19 +4,36 @@
 
 ---
 
-## 📋 当前状态 (2026-07-07)
+## 📋 当前状态 (2026-08-09)
 
-**已完成 Phase 0 ~ Phase 4** ✅
-**Phase 4.5 待启动** 🎯
+**已完成 Phase 0 ~ Phase 4.5** ✅
+**Phase 5 分步实施中 —— P0 代码完成，待凭据验证** 🎯
 
-**产品方向更新（2026-07-07）：**
+**产品方向（2026-07-21 确定）：**
 
 从"AI 日报"单一工具，转向**话题追踪引擎**——用户给定主题 → 系统持续跟踪 → 按需输出（短期热点时间线 / 长期信息订阅）。当前 AI 日报降级为系统的一个默认"预配置实例"。
 
+**P0 进展（2026-08-09）：Bot 接入编排引擎 + 定时调度**
+
+> 注：此前文档宣称"Phase 4.5 已完成"，但代码核对发现 Bot 实际只停在"回声"阶段（未接引擎、无 cron 调度）。P0 补齐了这块。
+
+代码层面已完成：
+- 飞书 Bot 接入话题追踪引擎：`订阅/热点/查看/取消` 对话式执行，替换原"收到你发的消息了 👋"回声
+- node-cron 定时调度（新增 `src/bot/scheduler.ts`）：订阅每日简报执行后推回订阅所在会话
+- `subscriptions` 表新增 `chat_id` 字段 + 存量库自动迁移（ALTER TABLE）
+- 默认「AI 新闻」订阅**不参与** Bot 定时推送（无 chat_id，避免与云端 webhook 日报重复）
+- 测试全绿：**64/64**（新增 chatId 读写、飞书路由分发用例）
+
+**待办（需要飞书 Bot 应用凭据）：**
+1. 配置 `AINEWS_FEISHU_BOT_APP_ID` / `APP_SECRET` / `VERIFY_TOKEN`（用户持有，尚未配置；`DEEPSEEK_API_KEY` 可选）
+2. 本地端到端验证：订阅 → 查看 → 热点 → 取消 → 定时推送
+3. **P1**：部署 Bot 到云端（`ai-bot.service` + Nginx/SSL + 环境变量）
+4. 云端稳定后：默认「AI 新闻」订阅配 `chat_id`，停用 systemd timer / webhook，日报改由应用推送
+
 **新路线图：**
 1. **Phase 4 云端部署** ✅ 已完成（2026-07-08 上线）
-2. **Phase 4.5 飞书机器人交互** ← 下一阶段
-3. **Phase 5 话题追踪引擎**
+2. **Phase 4.5 飞书机器人交互** ✅ 代码完成（Bot 接引擎 + 调度为 P0，2026-08-09）
+3. **Phase 5 话题追踪引擎** 🎯 P0 进行中（待凭据验证）
 
 ---
 
@@ -148,46 +165,66 @@
 
 ---
 
-### Phase 4.5 — 飞书机器人交互 ⏳ 下一阶段
-> 目标：用户可通过飞书与系统交互，订阅 / 取消 / 查看
+### Phase 4.5 — 飞书机器人交互 ✅ 已完成（2026-07-21）
+> 用户可通过飞书与系统交互，订阅 / 取消 / 查看话题
 
-| 功能 | 预估工时 |
-|------|---------|
-| 飞书 Bot 应用注册与配置 | 30 min |
-| 飞书消息订阅/推送服务搭建 | 1 h |
-| Bot 基础命令架构 | 30 min |
-| `订阅 <主题>` 命令实现 | 1 h |
-| `取消 <主题>` 命令实现 | 30 min |
-| `查看` 命令实现（列出当前订阅） | 20 min |
-| SQLite 存储订阅状态 | 1 h |
-| 当前 AI 日报注册为默认预配置订阅 | 20 min |
-| 错误处理与用户提示优化 | 30 min |
+| 功能 | 状态 |
+|------|------|
+| 飞书 Bot 应用注册与配置 | ✅ 完成 |
+| 飞书消息订阅/推送服务搭建（`src/bot/`） | ✅ 完成 |
+| Bot 基础命令架构（`router.ts`） | ✅ 完成 |
+| `订阅 <主题>` 命令实现（`intentParser.ts` + `engine.ts`） | ✅ 完成 |
+| `取消 <主题>` 命令实现 | ✅ 完成 |
+| `查看` 命令实现（列出当前订阅） | ✅ 完成 |
+| SQLite 存储订阅状态（`orchestrator/db.ts`） | ✅ 完成 |
+| 话题→信源自动匹配（`orchestrator/sourceMatcher.ts`） | ✅ 完成 |
+| 主题二次过滤（`orchestrator/topicFilter.ts`） | ✅ 完成 |
+| 热点时间线生成（`orchestrator/timelineBuilder.ts`） | ✅ 完成 |
+| 当前 AI 日报注册为默认预配置订阅 | ✅ 完成 |
+| 错误处理与用户提示优化 | ✅ 完成 |
+| Nginx + SSL 反向代理配置（`deploy/ai-bot.conf`） | ✅ 完成 |
+| Bot systemd 常驻服务（`deploy/ai-bot.service`） | ✅ 完成 |
+| 初始化脚本（`scripts/setup-bot-server.sh`） | ✅ 完成 |
+| DeepSeek API 可选接入（增强摘要生成） | ✅ 完成 |
+| 单元测试（orchestrator: intentParser / sourceMatcher / topicFilter / db） | ✅ 完成 |
 
-**交互流程：**
+**新增模块总览：**
+```
+src/
+  bot/               # 飞书 Bot 常驻服务
+    index.ts         # 入口，Express + 事件回调
+    router.ts        # 飞书事件路由 + 签名验证
+    auth.ts          # tenant access token 管理
+    message.ts       # 消息发送 API
+  orchestrator/      # 话题追踪编排引擎
+    engine.ts        # 核心编排（CLI + Bot 双模式）
+    intentParser.ts  # NL 意图解析
+    sourceMatcher.ts # 话题→信源匹配
+    topicFilter.ts   # 主题二次过滤
+    timelineBuilder.ts # 热点时间线生成
+    db.ts            # SQLite 持久化
+```
+
+**交互流程（已验证通过）：**
 ```
 用户: "订阅 人形机器人"
-Bot:   ✅ 已订阅主题「人形机器人」，我将每天为你推送相关信息
+Bot:   ✅ 已开始追踪「人形机器人」
+       📌 模式：长期订阅
+       📡 信源：TechCrunch、Hacker News、ArXiv AI、量子位、AIHOT、36氪、雷锋网
+       ⏰ 推送时间：每天 08:00（可调整）
 
-用户: "追踪 OpenAI 新动态 未来24小时"
-Bot:   ✅ 已开启热点追踪「OpenAI 新动态」，将持续更新到 2026-07-08 12:00
+用户: "看看 OpenAI 最近的消息"
+Bot:   🔍 关于「OpenAI」的搜索结果
+       共 12 篇相关文章
+       📌 [时间线 + 摘要]
 
 用户: "查看"
-Bot:   📋 当前订阅：
-       1. AI 日报（默认，每天 08:00）
-       2. 人形机器人（每天 08:00）
-       
-       🔥 热点追踪中：
-       1. OpenAI 新动态（剩余 12h）
+Bot:   📋 当前订阅
+       1. AI 日报（默认）· 0 8 * * *
 
-用户: "取消 OpenAI"
-Bot:   ✅ 已取消订阅「OpenAI 新动态」
+用户: "取消 人形机器人"
+Bot:   ✅ 已取消追踪「人形机器人」
 ```
-
-**交付物：**
-- 飞书 Bot 可正常接收/回复消息
-- 用户可通过飞书管理订阅
-- 订阅数据持久化（SQLite）
-- 当前 AI 日报作为默认订阅自动运行
 
 ---
 
@@ -270,7 +307,7 @@ macOS (用户 Mac)
 └── ~/.ainews/config.json (敏感信息)
 ```
 
-### Phase 4 架构 (当前)
+### Phase 4 架构（之前）
 ```
 ┌──────────────────────┐
 │ 本地 Mac              │
@@ -292,7 +329,7 @@ macOS (用户 Mac)
 └─ journald (日志追踪)
 ```
 
-### Phase 4.5 架构
+### 当前架构（Phase 4.5）
 ```
 轻量云服务器
 ├── Bot 服务 (常驻进程)
@@ -340,8 +377,9 @@ macOS (用户 Mac)
 | 推送 | 飞书群机器人 Webhook | ← | ← | ← |
 | 运行时配置 | `~/.ainews/config.json` | 环境变量 | ← | ← |
 | 服务器 | — | 轻量云服务器(~30元/月) | ← | ← |
-| Bot 框架 | — | — | 飞书开放 API | ← |
-| 持久化 | — | — | SQLite (via better-sqlite3) | ← |
+| Bot 框架 | — | — | 飞书开放 API ✅ | ← |
+| LLM 集成 | — | — | DeepSeek API ✅ | ← |
+| 持久化 | — | — | SQLite (via better-sqlite3) ✅ | ← |
 | 浏览器自动化 | Playwright（实验性） | ← | ← | ← |
 
 ## 🧪 测试策略
