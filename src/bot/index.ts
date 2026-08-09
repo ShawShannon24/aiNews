@@ -7,6 +7,9 @@
 import express from 'express'
 import { createRouter, getChatId, getMessageId, BotConfig, FeishuEvent } from './router.js'
 import { replyMessage } from './message.js'
+import { syncSubscriptions, stopAllSubscriptions } from './scheduler.js'
+import { handleUserMessage } from '../orchestrator/engine.js'
+import { initDefaultSubscriptions } from '../orchestrator/db.js'
 import { loadConfig } from '../config.js'
 
 const PORT = parseInt(process.env.PORT || '3000', 10)
@@ -26,17 +29,26 @@ async function main() {
     verifyToken: config.bot.verifyToken,
   }
 
+  // ---- 初始化默认订阅 + 订阅调度 ----
+  initDefaultSubscriptions()
+  syncSubscriptions(botConfig)
+
   // ---- 消息处理回调 ----
-  function handleMessage(text: string, event: FeishuEvent) {
-    // Step 2: 简单回复（验证 Bot 可正常收发）
-    // Step 4: 接入编排引擎处理完整对话
+  async function handleMessage(text: string, event: FeishuEvent) {
     const messageId = getMessageId(event)
+    const chatId = getChatId(event)
     if (!messageId) return
 
-    // 异步回复，不阻塞请求
-    replyMessage(messageId, `收到你发的消息了 👋\n你说的是: "${text}"`, botConfig).catch((err) => {
-      console.error('[飞书] 回复失败:', err)
-    })
+    try {
+      // 接入编排引擎处理完整对话（订阅/热点/查看/取消）
+      const result = await handleUserMessage(text, { chatId })
+      await replyMessage(messageId, result.output, botConfig)
+      // 订阅状态可能变化（新增/取消），同步调度器
+      syncSubscriptions(botConfig)
+    } catch (err) {
+      console.error('[飞书] 引擎执行失败:', err)
+      await replyMessage(messageId, '⚠️ 服务暂时不可用，请稍后再试', botConfig)
+    }
   }
 
   // ---- Express ----
@@ -60,6 +72,7 @@ async function main() {
   // ---- 优雅退出 ----
   const shutdown = () => {
     console.log('\n[Bot] 正在关闭服务...')
+    stopAllSubscriptions()
     server.close(() => {
       console.log('[Bot] 服务已关闭')
       process.exit(0)

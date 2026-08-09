@@ -36,20 +36,29 @@ export interface EngineResult {
   articleCount: number
 }
 
+/** 用户消息上下文（Bot 传入，CLI 可不传） */
+export interface UserContext {
+  /** 消息来源会话的 chat_id，订阅时记录用于定时推送 */
+  chatId?: string | null
+}
+
 // ---- 核心编排 ----
 
 /**
  * 处理用户消息，返回结果。
  * 由 bot/router.ts 在后台调用。
  */
-export async function handleUserMessage(text: string): Promise<EngineResult> {
+export async function handleUserMessage(
+  text: string,
+  ctx: UserContext = {},
+): Promise<EngineResult> {
   // 1. 解析意图
   const intent = await parseIntent(text)
 
   // 2. 根据意图执行
   switch (intent.mode) {
     case 'subscribe':
-      return handleSubscribe(intent)
+      return handleSubscribe(intent, ctx)
     case 'hotspot':
       return handleHotspot(intent)
     case 'view':
@@ -67,7 +76,7 @@ export async function handleUserMessage(text: string): Promise<EngineResult> {
 
 // ---- 订阅模式 ----
 
-async function handleSubscribe(intent: Intent): Promise<EngineResult> {
+async function handleSubscribe(intent: Intent, ctx: UserContext = {}): Promise<EngineResult> {
   if (!intent.topic) {
     return {
       success: false,
@@ -89,7 +98,7 @@ async function handleSubscribe(intent: Intent): Promise<EngineResult> {
   // 匹配信源
   const sources = matchSources(intent.category)
 
-  // 保存订阅
+  // 保存订阅（记录来源会话 chat_id，定时推送推回该会话）
   const sub = createSubscription({
     topic: intent.topic,
     category: intent.category,
@@ -97,6 +106,7 @@ async function handleSubscribe(intent: Intent): Promise<EngineResult> {
     needSummary: intent.needSummary,
     sources: JSON.stringify(sources.map((s) => s.name)),
     cronSchedule: '0 8 * * *', // 默认每天 08:00
+    chatId: ctx.chatId ?? null,
     isActive: true,
   })
 

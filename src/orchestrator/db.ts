@@ -17,6 +17,8 @@ export interface Subscription {
   needSummary: boolean
   sources: string                      // JSON 数组字符串
   cronSchedule: string                 // crontab 格式, 如 "0 8 * * *"
+  /** 定时推送的目标会话（群/单聊 chat_id），无则不在 Bot 侧推送 */
+  chatId: string | null
   isDefault: boolean
   createdAt: string                    // ISO 8601
   lastRunAt: string | null
@@ -63,6 +65,7 @@ function initTables(): void {
       need_summary  INTEGER NOT NULL DEFAULT 1,
       sources       TEXT NOT NULL,
       cron_schedule TEXT NOT NULL DEFAULT '0 8 * * *',
+      chat_id       TEXT,
       is_default    INTEGER NOT NULL DEFAULT 0,
       created_at    TEXT NOT NULL,
       last_run_at   TEXT,
@@ -80,6 +83,21 @@ function initTables(): void {
 
     CREATE INDEX IF NOT EXISTS idx_push_history_sub_id ON push_history(subscription_id);
   `)
+
+  migrate()
+}
+
+/**
+ * 存量库迁移：早期版本的 subscriptions 表没有 chat_id 列，
+ * 检测到缺列时自动补上（ALTER TABLE ADD COLUMN）。
+ */
+function migrate(): void {
+  const d = getDb()
+  const columns = d.prepare('PRAGMA table_info(subscriptions)').all() as { name: string }[]
+  if (!columns.some((c) => c.name === 'chat_id')) {
+    d.exec('ALTER TABLE subscriptions ADD COLUMN chat_id TEXT')
+    console.log('[DB] 迁移完成: subscriptions 表新增 chat_id 列')
+  }
 }
 
 // ---- 默认订阅 ----
@@ -92,6 +110,7 @@ const DEFAULT_SUBSCRIPTIONS: Omit<Subscription, 'id' | 'createdAt' | 'lastRunAt'
     needSummary: true,
     sources: '["全部"]',
     cronSchedule: '0 8 * * *',
+    chatId: null,
     isDefault: true,
     isActive: true,
   },
@@ -112,9 +131,9 @@ export function initDefaultSubscriptions(): void {
     if (!existing) {
       const now = new Date().toISOString()
       d.prepare(`
-        INSERT INTO subscriptions (id, topic, category, mode, need_summary, sources, cron_schedule, is_default, created_at, is_active)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, 1)
-      `).run(randomUUID(), sub.topic, sub.category, sub.mode, sub.needSummary ? 1 : 0, sub.sources, sub.cronSchedule, now)
+        INSERT INTO subscriptions (id, topic, category, mode, need_summary, sources, cron_schedule, chat_id, is_default, created_at, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 1)
+      `).run(randomUUID(), sub.topic, sub.category, sub.mode, sub.needSummary ? 1 : 0, sub.sources, sub.cronSchedule, sub.chatId, now)
       console.log(`[DB] 已创建默认订阅: "${sub.topic}"`)
     }
   }
@@ -133,9 +152,9 @@ export function createSubscription(
   const now = new Date().toISOString()
 
   d.prepare(`
-    INSERT INTO subscriptions (id, topic, category, mode, need_summary, sources, cron_schedule, is_default, created_at, is_active)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 1)
-  `).run(id, data.topic, data.category, data.mode, data.needSummary ? 1 : 0, data.sources, data.cronSchedule, now)
+    INSERT INTO subscriptions (id, topic, category, mode, need_summary, sources, cron_schedule, chat_id, is_default, created_at, is_active)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 1)
+  `).run(id, data.topic, data.category, data.mode, data.needSummary ? 1 : 0, data.sources, data.cronSchedule, data.chatId, now)
 
   return getSubscription(id)!
 }
@@ -234,6 +253,7 @@ function rowToSubscription(row: Record<string, unknown>): Subscription {
     needSummary: Boolean(row.need_summary),
     sources: row.sources as string,
     cronSchedule: row.cron_schedule as string,
+    chatId: row.chat_id as string | null,
     isDefault: Boolean(row.is_default),
     createdAt: row.created_at as string,
     lastRunAt: row.last_run_at as string | null,

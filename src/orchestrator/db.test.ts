@@ -42,6 +42,7 @@ describe('数据库 CRUD', () => {
       needSummary: true,
       sources: '["量子位","TechCrunch"]',
       cronSchedule: '0 8 * * *',
+      chatId: 'oc_test_chat_1',
       isActive: true,
     })
 
@@ -56,6 +57,40 @@ describe('数据库 CRUD', () => {
     const found = getSubscription(sub.id)
     notStrictEqual(found, null)
     strictEqual(found!.topic, '人形机器人')
+  })
+
+  it('订阅记录 chatId（定时推送目标）', () => {
+    const sub = createSubscription({
+      topic: '带群地址的话题',
+      category: '科技',
+      mode: 'subscribe',
+      needSummary: true,
+      sources: '["全部"]',
+      cronSchedule: '0 8 * * *',
+      chatId: 'oc_test_chat_2',
+      isActive: true,
+    })
+
+    strictEqual(sub.chatId, 'oc_test_chat_2')
+
+    const found = getSubscription(sub.id)
+    notStrictEqual(found, null)
+    strictEqual(found!.chatId, 'oc_test_chat_2')
+  })
+
+  it('chatId 为空时返回 null', () => {
+    const sub = createSubscription({
+      topic: '无群地址的话题',
+      category: '科技',
+      mode: 'subscribe',
+      needSummary: true,
+      sources: '["全部"]',
+      cronSchedule: '0 8 * * *',
+      chatId: null,
+      isActive: true,
+    })
+
+    strictEqual(sub.chatId, null)
   })
 
   it('按 topic 查询订阅', () => {
@@ -78,6 +113,7 @@ describe('数据库 CRUD', () => {
       needSummary: false,
       sources: '["全部"]',
       cronSchedule: '0 6 * * *',
+      chatId: null,
       isActive: true,
     })
 
@@ -98,6 +134,7 @@ describe('数据库 CRUD', () => {
       needSummary: false,
       sources: '["全部"]',
       cronSchedule: '0 8 * * *',
+      chatId: null,
       isActive: true,
     })
 
@@ -125,6 +162,7 @@ describe('推送历史', () => {
       needSummary: true,
       sources: '["全部"]',
       cronSchedule: '0 8 * * *',
+      chatId: null,
       isActive: true,
     })
     subId = sub.id
