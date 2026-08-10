@@ -10,6 +10,8 @@ ExecStart=/usr/local/bin/npx tsx /opt/aiNews/src/bot/index.ts
 WorkingDirectory=/opt/aiNews
 EnvironmentFile=/etc/ai-news.env
 Environment=NODE_ENV=production
+# 3000 已被 health-bot 占用，Bot 改用 3001（Nginx 反代对应调整）
+Environment=PORT=3001
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 StandardOutput=journal
 StandardError=journal
