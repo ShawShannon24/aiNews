@@ -4,10 +4,10 @@
 
 ---
 
-## 📋 当前状态 (2026-08-09)
+## 📋 当前状态 (2026-08-10)
 
 **已完成 Phase 0 ~ Phase 4.5** ✅
-**Phase 5 分步实施中 —— P0 代码完成，待凭据验证** 🎯
+**Phase 5 分步实施中 —— P0 代码完成 + 云端部署就绪，卡在域名备案** 🎯
 
 **产品方向（2026-07-21 确定）：**
 
@@ -24,16 +24,37 @@
 - 默认「AI 新闻」订阅**不参与** Bot 定时推送（无 chat_id，避免与云端 webhook 日报重复）
 - 测试全绿：**64/64**（新增 chatId 读写、飞书路由分发用例）
 
-**待办（需要飞书 Bot 应用凭据）：**
-1. 配置 `AINEWS_FEISHU_BOT_APP_ID` / `APP_SECRET` / `VERIFY_TOKEN`（用户持有，尚未配置；`DEEPSEEK_API_KEY` 可选）
-2. 本地端到端验证：订阅 → 查看 → 热点 → 取消 → 定时推送
-3. **P1**：部署 Bot 到云端（`ai-bot.service` + Nginx/SSL + 环境变量）
-4. 云端稳定后：默认「AI 新闻」订阅配 `chat_id`，停用 systemd timer / webhook，日报改由应用推送
+**部署进展（2026-08-10）：云端部署就绪，等待域名备案**
+
+已完成的部署工作：
+- P0 分支 `feat/p0-bot-engine` 已 push 到 GitHub，云端 `/opt/aiNews` 已 checkout 该分支并安装依赖
+- 发现云端已有 **Caddy**（非 Nginx）占 80/443，且 3000 端口被 `health-bot`（私人健康助手）占用
+- 采用**子域名方案**：`newsbot.xiyin.online` → Caddy 反代 → 云端 **3001** 端口（`PORT=3001`，避免与 health-bot 冲突）
+- Caddyfile 已加 `newsbot.xiyin.online` 站点；`deploy/ai-bot.service` 配置 `PORT=3001` 已提交
+- DNS 记录 `newsbot → 140.143.242.88` 已生效
+
+**⚠️ 当前卡点：域名未备案（ICP）**
+- 腾讯云对**未备案域名**的境外 HTTP 访问返回拦截页（`dnspod.qcloud.com/webblock.html`）
+- Let's Encrypt 证书验证（HTTP-01）来自海外节点 → 被拦截 → 证书签不下来 → Bot 暂无法对外提供 HTTPS
+- **用户已提交 ICP 备案，正在审核（预计 1-3 周）**
+- 期间每日日报**不受影响**（走飞书 webhook API，不依赖域名/证书）
+
+**两条解锁路线（未定）：**
+- **路线 A（当前采用）：等备案通过** → 海外 HTTP 验证不再被拦 → Caddy 自动签证书 → 填飞书回调 → 启动 Bot。零额外操作。
+- **路线 B（可转）：DNS-01 临时签证书** → 需要用户提供 DNSPod API Token（ID + Token），服务器已装好 `certbot-dnspod` 插件（venv: `/opt/certbot-venv`，certbot 2.11 + 固定兼容版本组合）。备案通过后证书自动续期，无需二次操作。
+
+**待办（备案通过后）：**
+1. Caddy 自动签发 `newsbot.xiyin.online` 证书 → 验证 `https://newsbot.xiyin.online/health` 可达
+2. 配置 `/etc/ai-news.env`：`AINEWS_FEISHU_BOT_APP_ID` / `APP_SECRET` / `VERIFY_TOKEN`（用户持有，尚未配置）+ `DEEPSEEK_API_KEY`（可选）+ `DB_PATH=/opt/aiNews/data/ainews.db`
+3. 启动 `ai-bot.service`（需先创建 `ainews` 用户：`sudo useradd -r -s /usr/sbin/nologin ainews` + `chown`）
+4. 飞书开放平台填事件回调地址 `https://newsbot.xiyin.online/webhook/event` → 验证通过 → 创建应用版本发布
+5. 飞书对话验证：订阅 → 查看 → 热点 → 取消 → 定时推送
+6. 云端稳定后：默认「AI 新闻」订阅配 `chat_id`，停用 systemd timer / webhook，日报改由应用推送
 
 **新路线图：**
 1. **Phase 4 云端部署** ✅ 已完成（2026-07-08 上线）
 2. **Phase 4.5 飞书机器人交互** ✅ 代码完成（Bot 接引擎 + 调度为 P0，2026-08-09）
-3. **Phase 5 话题追踪引擎** 🎯 P0 进行中（待凭据验证）
+3. **Phase 5 话题追踪引擎** 🎯 P0 进行中（部署就绪，待备案通过后启用）
 
 ---
 
