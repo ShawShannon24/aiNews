@@ -116,6 +116,22 @@ ssh ubuntu@140.143.242.88 'sudo systemctl restart ai-bot.service'
 
 完整待办见 [`docs/PRODUCT_PLAN.md`](docs/PRODUCT_PLAN.md) 当前状态。
 
+### 云端多服务权限约定（2026-08-11 教训）
+
+`/opt/aiNews` 由两个 systemd 服务共享，**以不同系统用户运行、写不同子目录**：
+
+| 服务 | 运行用户 | 写的子目录 |
+|---|---|---|
+| `ai-news.service`（日报） | `ubuntu` | `/opt/aiNews/output/` |
+| `ai-bot.service`（Bot，待启动） | `ainews` | `/opt/aiNews/data/` |
+
+⚠️ **教训**：2026-08-10 部署 Bot 时对 `/opt/aiNews` 整体执行 `chown -R ainews:ainews`，导致日报服务（ubuntu 用户）无法写 `output/`，**次日日报推送失败**（EACCES），2026-08-11 已修复（`chown -R ubuntu:ubuntu /opt/aiNews/output`）。
+
+**规范：**
+- 给 Bot（ainews）授权时**只** chown 它需要的子目录，例如 `sudo chown -R ainews:ainews /opt/aiNews/data`
+- **绝不**对共享项目目录整体 `chown -R`
+- 改权限后手动触发一次日报验证：`sudo systemctl start ai-news.service`，确认「✅ 飞书推送完成」
+
 ## 项目结构
 
 ```
