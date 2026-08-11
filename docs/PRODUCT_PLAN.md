@@ -43,13 +43,22 @@
 - **路线 A（当前采用）：等备案通过** → 海外 HTTP 验证不再被拦 → Caddy 自动签证书 → 填飞书回调 → 启动 Bot。零额外操作。
 - **路线 B（可转）：DNS-01 临时签证书** → 需要用户提供 DNSPod API Token（ID + Token），服务器已装好 `certbot-dnspod` 插件（venv: `/opt/certbot-venv`，certbot 2.11 + 固定兼容版本组合）。备案通过后证书自动续期，无需二次操作。
 
-**待办（备案通过后）：**
-1. Caddy 自动签发 `newsbot.xiyin.online` 证书 → 验证 `https://newsbot.xiyin.online/health` 可达
-2. 配置 `/etc/ai-news.env`：`AINEWS_FEISHU_BOT_APP_ID` / `APP_SECRET` / `VERIFY_TOKEN`（用户持有，尚未配置）+ `DEEPSEEK_API_KEY`（可选）+ `DB_PATH=/opt/aiNews/data/ainews.db`
-3. 启动 `ai-bot.service`（需先创建 `ainews` 用户：`sudo useradd -r -s /usr/sbin/nologin ainews` + `chown`）
-4. 飞书开放平台填事件回调地址 `https://newsbot.xiyin.online/webhook/event` → 验证通过 → 创建应用版本发布
-5. 飞书对话验证：订阅 → 查看 → 热点 → 取消 → 定时推送
-6. 云端稳定后：默认「AI 新闻」订阅配 `chat_id`，停用 systemd timer / webhook，日报改由应用推送
+**待办（按优先级）：**
+
+**P0 — 前置（不依赖备案，可随时做）**
+1. ~~补 push 待推送的 docs 提交~~ ✅ 2026-08-11 已推送
+2. 日报失败告警：`ai-news.service` 执行失败时推一条飞书通知（如「⚠️ 今日日报生成失败」）。低风险、不依赖证书/域名，可与 P1 一起做。背景：2026-08-11 日报曾因权限问题静默失败一天无人知
+
+**P1 — 备案通过后启用 Bot（依赖 ICP 审核，预计 1-3 周）**
+3. Caddy 自动签发 `newsbot.xiyin.online` 证书 → 验证 `https://newsbot.xiyin.online/health` 可达
+4. 配置 `/etc/ai-news.env`：`AINEWS_FEISHU_BOT_APP_ID` / `APP_SECRET` / `VERIFY_TOKEN`（用户持有，尚未配置）+ `DEEPSEEK_API_KEY`（可选）+ `DB_PATH=/opt/aiNews/data/ainews.db`
+5. 启动 `ai-bot.service`（需先创建 `ainews` 用户：`sudo useradd -r -s /usr/sbin/nologin ainews`；**注意**：只对 `data/` 子目录授权 ainews，见 CLAUDE.md「云端多服务权限约定」）
+6. 飞书开放平台填事件回调地址 `https://newsbot.xiyin.online/webhook/event` → 验证通过 → 创建应用版本发布
+7. 飞书对话验证：订阅 → 查看 → 热点 → 取消 → 定时推送
+
+**P2 — Bot 云端稳定运行后**
+8. 默认「AI 新闻」订阅配 `chat_id`，停用 systemd timer / webhook，日报改由应用推送
+9. 将 `feat/p0-bot-engine` 分支合并回 `main`
 
 **新路线图：**
 1. **Phase 4 云端部署** ✅ 已完成（2026-07-08 上线）
