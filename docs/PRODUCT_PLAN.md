@@ -47,7 +47,8 @@
 
 **P0 — 前置（不依赖备案，可随时做）**
 1. ~~补 push 待推送的 docs 提交~~ ✅ 2026-08-11 已推送
-2. 日报失败告警：`ai-news.service` 执行失败时推一条飞书通知（如「⚠️ 今日日报生成失败」）。低风险、不依赖证书/域名，可与 P1 一起做。背景：2026-08-11 日报曾因权限问题静默失败一天无人知
+2. ~~日报失败告警~~ ✅ 2026-08-12 已实现：`pushAlertToFeishu`（feishu.ts）+ `index.ts` catch 推送；测试 68 全绿；本地注入错误后告警真实推送成功。commit `2ce2326`
+3. **云端拉取告警代码** ⏳ 2026-08-12：本地已推送 `2ce2326`，但云端 `/opt/aiNews` 到 GitHub 的 HTTPS 连接当时不稳定（反复 443 超时），**尚未拉取**。云端仍停在 `701b8af`（无告警功能）。已 `stash` 干净、无脏状态。**下次回来：`ssh ubuntu@140.143.242.88 'cd /opt/aiNews && git pull'`**（网络恢复后即可）
 
 **P1 — 备案通过后启用 Bot（依赖 ICP 审核，预计 1-3 周）**
 3. Caddy 自动签发 `newsbot.xiyin.online` 证书 → 验证 `https://newsbot.xiyin.online/health` 可达
