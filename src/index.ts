@@ -10,7 +10,7 @@ import { generateSummary } from './summarizer.js'
 import { generateReport } from './reporter.js'
 import { batchTranslate } from './translator.js'
 import { loadConfig } from './config.js'
-import { pushToFeishu } from './publishers/feishu.js'
+import { pushToFeishu, pushAlertToFeishu } from './publishers/feishu.js'
 import { generateXHSPost } from './publishers/xiaohongshu.js'
 
 const DEFAULT_SOURCES: FeedSource[] = [
@@ -197,7 +197,34 @@ async function main() {
   }
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   console.error('[错误]', err)
+
+  // ---- 日报失败告警：推送纯文本到飞书群机器人 ----
+  try {
+    const config = loadConfig()
+    const webhookUrl = config?.feishu?.webhookUrl
+    if (webhookUrl) {
+      const message = err instanceof Error ? err.message : String(err)
+      const alertText = [
+        '⚠️ 今日 AI 日报生成失败',
+        '',
+        `时间：${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}`,
+        `原因：${message}`,
+        '请检查服务器日志（journalctl -u ai-news.service）',
+      ].join('\n')
+      const ok = await pushAlertToFeishu(webhookUrl, alertText)
+      if (ok) {
+        console.log('✅ 失败告警已推送至飞书')
+      } else {
+        console.error('❌ 失败告警推送失败（见上方日志）')
+      }
+    } else {
+      console.warn('[告警] 未配置飞书 Webhook URL，跳过失败告警')
+    }
+  } catch (alertErr) {
+    console.error('[告警] 推送失败告警时出错:', alertErr)
+  }
+
   process.exit(1)
 })

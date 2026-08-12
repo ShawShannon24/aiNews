@@ -115,6 +115,49 @@ export function formatFeishuMessage(
   }
 }
 
+// ---- 告警推送 ----
+
+/**
+ * 推送纯文本告警消息到飞书群机器人。
+ *
+ * 用于日报/任务失败等异常场景，与日报内容推送（post 富文本）不同，
+ * 这里发送简单的 text 消息，独立于日报流程，避免失败时无感知。
+ *
+ * @param webhookUrl - 飞书 Webhook URL
+ * @param text       - 告警文本内容
+ * @returns 是否发送成功
+ */
+export async function pushAlertToFeishu(
+  webhookUrl: string,
+  text: string,
+): Promise<boolean> {
+  try {
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ msg_type: 'text', content: { text } }),
+    })
+
+    if (!res.ok) {
+      const body = await res.text()
+      console.error(`[飞书告警] 推送失败 (${res.status}): ${body}`)
+      return false
+    }
+
+    const data = await res.json() as { code?: number; StatusCode?: number }
+    if (data.code !== 0 && data.StatusCode !== 0) {
+      console.error(`[飞书告警] API 返回错误: ${JSON.stringify(data)}`)
+      return false
+    }
+
+    console.log('[飞书告警] 推送成功')
+    return true
+  } catch (err) {
+    console.error('[飞书告警] 请求异常:', err)
+    return false
+  }
+}
+
 // ---- 发送 ----
 
 /**

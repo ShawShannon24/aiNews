@@ -1,6 +1,6 @@
 import { describe, it, afterEach, mock } from 'node:test'
 import { equal, deepEqual, ok } from 'node:assert/strict'
-import { formatFeishuMessage, pushToFeishu } from './feishu.js'
+import { formatFeishuMessage, pushToFeishu, pushAlertToFeishu } from './feishu.js'
 import { Article } from '../types.js'
 
 /** 造一篇测试文章的工厂函数 */
@@ -213,5 +213,71 @@ describe('pushToFeishu', () => {
       1,
     )
     equal(ok, false)
+  })
+})
+
+// ---- pushAlertToFeishu ----
+
+describe('pushAlertToFeishu', () => {
+  afterEach(() => {
+    mock.reset()
+  })
+
+  it('发送纯文本告警成功 → 返回 true 且 body 为 text 类型', async () => {
+    let sentBody: unknown
+    mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+      sentBody = JSON.parse(String(init.body))
+      return new Response(JSON.stringify({ code: 0, data: {} }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    })
+
+    const result = await pushAlertToFeishu(
+      'https://open.feishu.cn/open-apis/bot/v2/hook/test',
+      '⚠️ 今日 AI 日报生成失败\n原因：测试',
+    )
+    equal(result, true)
+    equal((sentBody as { msg_type: string }).msg_type, 'text')
+    ok((sentBody as { content: { text: string } }).content.text.includes('日报生成失败'))
+  })
+
+  it('HTTP 非 200 → 返回 false', async () => {
+    mock.method(globalThis, 'fetch', async () =>
+      new Response('Bad Request', { status: 400 }),
+    )
+
+    const result = await pushAlertToFeishu(
+      'https://open.feishu.cn/open-apis/bot/v2/hook/test',
+      '告警测试',
+    )
+    equal(result, false)
+  })
+
+  it('API 返回非零 code → 返回 false', async () => {
+    mock.method(globalThis, 'fetch', async () =>
+      new Response(JSON.stringify({ code: 19021, msg: 'rate limit' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    const result = await pushAlertToFeishu(
+      'https://open.feishu.cn/open-apis/bot/v2/hook/test',
+      '告警测试',
+    )
+    equal(result, false)
+  })
+
+  it('网络异常 → 返回 false（不抛异常）', async () => {
+    mock.method(globalThis, 'fetch', async () => {
+      throw new Error('fetch failed')
+    })
+
+    const result = await pushAlertToFeishu(
+      'https://open.feishu.cn/open-apis/bot/v2/hook/test',
+      '告警测试',
+    )
+    equal(result, false)
   })
 })
