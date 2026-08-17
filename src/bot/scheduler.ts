@@ -77,6 +77,20 @@ export function stopAllSubscriptions(): void {
 }
 
 /**
+ * 判断订阅执行结果是否应推送。
+ *
+ * 仅在有实际内容（articleCount > 0）且订阅有会话目标（chatId）时推送，
+ * 避免「暂无新内容」等空结果也每天推送骚扰消息。
+ */
+export function shouldPush(
+  success: boolean,
+  articleCount: number,
+  chatId: string | null,
+): boolean {
+  return success && articleCount > 0 && !!chatId
+}
+
+/**
  * 执行单个订阅并推送到订阅所在会话。
  */
 async function runSubscription(
@@ -84,9 +98,12 @@ async function runSubscription(
   botAuth: BotAuth,
 ): Promise<void> {
   const result = await executeSubscription(sub.id)
-  if (result.success && sub.chatId) {
-    await pushToChat(sub.chatId, result.output, botAuth)
+  // 仅在有实际内容时推送，避免每天推送「暂无新内容」骚扰消息
+  if (shouldPush(result.success, result.articleCount, sub.chatId)) {
+    await pushToChat(sub.chatId!, result.output, botAuth)
   } else {
-    console.warn(`[调度] 订阅 "${sub.topic}" 执行无结果，跳过推送 (${result.output})`)
+    console.warn(
+      `[调度] 订阅 "${sub.topic}" ${result.articleCount > 0 ? '无会话目标' : '无新内容'}，跳过推送 (${result.output})`,
+    )
   }
 }
