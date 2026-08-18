@@ -30,7 +30,7 @@ describe('飞书事件路由', () => {
     }))
     app.use(createRouter((text, event) => {
       received.push({ text, event })
-    }))
+    }, 'test-verify-token'))
     server = createServer(app)
     await new Promise<void>((resolve) => server.listen(0, resolve))
     const addr = server.address() as AddressInfo
@@ -82,5 +82,63 @@ describe('飞书事件路由', () => {
     strictEqual(received.length, 1)
     strictEqual(received[0].text, '订阅 人形机器人')
     ok(received[0].event, '应透传原始事件')
+  })
+
+  it('v2 格式事件也能分发（header.event_type + token 校验）', async () => {
+    const eventBody = {
+      schema: '2.0',
+      header: {
+        event_id: 'evt_test_1',
+        event_type: 'im.message.receive_v1',
+        create_time: '2026-08-18T12:00:00+08:00',
+        token: 'test-verify-token',
+        app_id: 'cli_test',
+      },
+      event: {
+        sender: { sender_id: { open_id: 'ou_v2_user' } },
+        message: {
+          message_id: 'om_v2_1',
+          root_id: '',
+          parent_id: '',
+          chat_id: 'oc_v2_chat',
+          chat_type: 'p2p',
+          message_type: 'text',
+          create_time: '2026-08-18T12:00:00+08:00',
+          // v2 格式：content 是 JSON 字符串（直接挂在 message 上，不是 body.content）
+          content: JSON.stringify({ text: '查看' }),
+        },
+      },
+    }
+    const res = await fetch(`${baseUrl}/webhook/event`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(eventBody),
+    })
+    strictEqual(res.status, 200)
+    strictEqual(received.length, 2)
+    strictEqual(received[1].text, '查看')
+  })
+
+  it('Verify Token 不匹配 → 拒绝（403）', async () => {
+    const eventBody = {
+      type: 'event_callback',
+      token: 'wrong-token',
+      event: {
+        type: 'im.message.receive_v1',
+        message: {
+          message_id: 'om_wrong_1',
+          chat_id: 'oc_wrong_1',
+          body: { content: JSON.stringify({ text: '查看' }) },
+          sender: { sender_id: { open_id: 'ou_wrong_1' } },
+        },
+      },
+    }
+    const res = await fetch(`${baseUrl}/webhook/event`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(eventBody),
+    })
+    strictEqual(res.status, 403)
+    strictEqual(received.length, 2, '不匹配的请求不应分发')
   })
 })

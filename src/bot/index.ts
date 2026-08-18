@@ -61,7 +61,7 @@ async function main() {
     },
   }))
 
-  app.use(createRouter(handleMessage))
+  app.use(createRouter(handleMessage, botConfig.verifyToken))
 
   const server = app.listen(PORT, () => {
     console.log(`🤖 AI News Bot 服务已启动: http://0.0.0.0:${PORT}`)

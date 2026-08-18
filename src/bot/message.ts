@@ -58,6 +58,9 @@ export async function replyMessage(
       content: JSON.stringify({ text: content }),
       msg_type: 'text',
     })
+    if (result.code === 0) {
+      console.log(`[飞书] 回复成功 (message_id=${messageId.slice(0, 12)}…)`)
+    }
     return result.code === 0
   } catch (err) {
     console.error('[飞书] 回复消息失败:', err)
