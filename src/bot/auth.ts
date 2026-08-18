@@ -76,9 +76,11 @@ export function verifySignature(
   signature: string,
   verifyToken: string,
 ): boolean {
+  // 飞书 v2 签名算法：signature = base64(sha256(body + verifyToken))
+  // 注意：是 Base64 编码，不是 hex！
   const expected = crypto
     .createHash('sha256')
     .update(body + verifyToken)
-    .digest('hex')
+    .digest('base64')
   return expected === signature
 }
