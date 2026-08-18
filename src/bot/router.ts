@@ -65,17 +65,9 @@ export function createRouter(onMessage: (text: string, event: FeishuEvent) => vo
     const bodyStr = JSON.stringify(req.body)
     const event = req.body as FeishuEvent
 
-    // 签名验证（如果配置了 verifyToken）
-    if (event.token) {
-      const signature = req.headers['x-lark-signature'] as string | undefined
-      if (!signature || !verifySignature(bodyStr, signature, event.token)) {
-        console.warn('[飞书] 签名验证失败，拒绝请求')
-        res.status(403).json({ error: 'invalid signature' })
-        return
-      }
-    }
-
-    // 处理 url_verification（飞书首次配置时验证 webhook）
+    // 先处理 url_verification（飞书配置 webhook 时的握手请求）。
+    // 注意：此请求【不带】X-Lark-Signature 签名头，只是明文 challenge 验证，
+    // 因此必须在签名验证之前返回，否则飞书会报「Challenge code 没有返回」。
     if (event.type === 'url_verification') {
       if (event.challenge) {
         res.json({ challenge: event.challenge })
@@ -83,6 +75,16 @@ export function createRouter(onMessage: (text: string, event: FeishuEvent) => vo
       }
       res.status(400).json({ error: 'missing challenge' })
       return
+    }
+
+    // 签名验证（只针对真实事件推送，如果配置了 verifyToken）
+    if (event.token) {
+      const signature = req.headers['x-lark-signature'] as string | undefined
+      if (!signature || !verifySignature(bodyStr, signature, event.token)) {
+        console.warn('[飞书] 签名验证失败，拒绝请求')
+        res.status(403).json({ error: 'invalid signature' })
+        return
+      }
     }
 
     // 其他事件先返回 200（飞书要求尽快响应）
