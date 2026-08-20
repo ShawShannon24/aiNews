@@ -106,13 +106,14 @@ ssh ubuntu@140.143.242.88 'sudo journalctl -u ai-bot.service -n 50 --no-pager'
 ssh ubuntu@140.143.242.88 'sudo systemctl restart ai-bot.service'
 ```
 
-### 云端 Bot 部署现状（2026-08-10）
+### 云端 Bot 部署现状（2026-08-20）
 
-- **入口**：云端 80/443 由 **Caddy**（非 Nginx）管理，`newsbot.xiyin.online → 127.0.0.1:3001`
-- **端口**：Bot 监听 **3001**（3000 被 health-bot 占用，见 `deploy/ai-bot.service` 的 `PORT=3001`）
-- **代码**：云端 `/opt/aiNews` 跑在 `feat/p0-bot-engine` 分支（尚未合并 main）
-- **⚠️ 卡点**：域名 `xiyin.online` **未备案**（备案审核中），Let's Encrypt 海外 HTTP 验证被腾讯云拦截，`newsbot.xiyin.online` 证书暂无法签发 → **ai-bot.service 尚未启动**。每日日报走 webhook 不受影响。
-- **解锁**：备案通过后 Caddy 自动签证书即可启用；如想提前启用可走 DNS-01 临时证书（需 DNSPod API Token，服务器已装好 `certbot-dnspod`，venv 在 `/opt/certbot-venv`）
+- **入口**：云端 80/443 由 **Caddy** 管理，`newsbot.xiyin.online → 127.0.0.1:3001`
+- **端口**：Bot 监听 **3001**（3000 被 health-bot 占用，`deploy/ai-bot.service` 设 `PORT=3001`）
+- **代码**：云端 `/opt/aiNews` 跑在 `main` 分支（已合并全部 P0/P1）
+- **运行用户**：`User=ubuntu`（ainews 用户因 npx 需可写 home 而弃用）
+- **✅ 已上线（2026-08-18）**：备案通过 → `newsbot.xiyin.online` 证书签发 → `ai-bot.service` 运行，飞书对话式订阅/热点/查看/取消全部工作
+- **✅ P2 完成（2026-08-20）**：默认「AI 新闻」订阅已配 `chat_id`，**systemd timer 已停用**，日报改由 Bot 的 node-cron 推送（webhook 链路退役）
 
 完整待办见 [`docs/PRODUCT_PLAN.md`](docs/PRODUCT_PLAN.md) 当前状态。
 
